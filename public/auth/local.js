@@ -31,7 +31,7 @@ function decodeToken(token, callback) {
       message: (process.env.NODE_ENV=='development'? 'Developnent is allowed' : '' ),
       user: (process.env.NODE_ENV=='development'? 'dev@ton' : '' )
     };
-    if (!(req.headers && req.headers.authorization) || true) {
+    if (!(req.headers && req.headers.authorization) && false) {
         if(process.env.NODE_ENV!='development'){
             objData.status = -1;
             objData.message = 'Please log in';
