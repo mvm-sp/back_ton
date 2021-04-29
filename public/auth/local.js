@@ -27,6 +27,12 @@ function decodeToken(token, callback) {
   
   function isAuthenticated(req) {
     const objData ={
+      status:  0 ,
+      message:  'Developnent is allowed',
+      user: 'dev@ton' 
+    };  
+    /*
+    const objData ={
       status: (process.env.NODE_ENV=='development'? 0 : -1 ),
       message: (process.env.NODE_ENV=='development'? 'Developnent is allowed' : '' ),
       user: (process.env.NODE_ENV=='development'? 'dev@ton' : '' )
@@ -50,7 +56,7 @@ function decodeToken(token, callback) {
             objData.user = reader.sub;
         }
         });
-    }
+    }*/
     return objData;
   }
 
