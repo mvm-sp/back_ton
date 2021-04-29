@@ -4,10 +4,10 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
-var login = require('./routes/login');
-var user_account = require('./routes/user_account');
-var logapi = require('./routes/logapi');
-var access = require('./routes/access');
+var login = require('../routes/login');
+var user_account = require('../routes/user_account');
+var logapi = require('../routes/logapi');
+var access = require('../routes/access');
 
 var app = express();
 
