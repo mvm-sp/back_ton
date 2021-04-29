@@ -8,11 +8,14 @@ var login = require('../routes/login');
 var user_account = require('../routes/user_account');
 var logapi = require('../routes/logapi');
 var access = require('../routes/access');
+var cors = require('cors');
 
 var app = express();
 
 //Use the env Configuration File.
 require('dotenv').config();
+
+app.use(cors());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
