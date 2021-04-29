@@ -42,41 +42,35 @@ async function getAll(req, res, next) {
 
 }
 
-function getById(req, res, next) {
+async function getById(req, res, next) {
   addAccess();
   const results = [];
-  // Grab data from the URL parameters
-  const id = req.params.id;
   userObj = localAuth.isAuthenticated(req);
-  if (userObj.status == 0) {
-    //Build parameter object data
-    const objParam = params.buildGetById(req);
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if (err) {
-        done();
-        console.log(err);
-        return res.status(500).json({ success: false, data: err });
-      }
-      // SQL Query > Select Data
-      const query = client.query(querys.getById, objParam.params);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', () => {
-        done();
-        return res.json({ payload: results });
-      });
-    });
-  } else {
+
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
   }
+  const client = new Client(process.env.DATABASE_URL)
+  try {
+    await client.connect()
+    // SQL Query > Select Data
+    const queryResult = await client.query(querys.getById,params.buildGetById(req).params);
+    const { rows } = queryResult
+    return res.json({ payload: rows });
+
+  } catch (error) {
+    res.status(500).json({
+      status: 'internalServerError',
+      message: error
+    });
+    
+  } finally {
+    await client.end()
+  }
+
 }
 
 async function add(req, res, next) {
@@ -85,11 +79,20 @@ async function add(req, res, next) {
 
   // Grab data from http request
   userObj = localAuth.isAuthenticated(req);
-  if (userObj.status == 0) {
+  if (userObj.status !== 0) {
+    res.status(401).json({
+      status: 'NoAccess',
+      message: userObj.message
+    });    
+  }
+  else 
+  {
     //Build parameter object data
     const objParam = params.buildAdd(req);
+    const client = new Client(process.env.DATABASE_URL)
+
     try {
-      const client = new Client(process.env.DATABASE_URL)
+      
       await client.connect()
       const exist = await accountExists(client, req.body.email)
 
@@ -99,9 +102,9 @@ async function add(req, res, next) {
           message: 'Account already exists'
         });
       }
-      const queryResult = await client.query(querys.add, objParam.params)
+      await client.query(querys.add, objParam.params)
       // // SQL Query > log 
-      await client.query(querys.log, params.buildLog(req, userObj.user).params);
+      const queryResult = await client.query(querys.log, params.buildLog(req, userObj.user).params);
       const { rows } = queryResult
       return res.json({ payload: !!rows.length });
 
@@ -109,124 +112,113 @@ async function add(req, res, next) {
       res.status(500).json({ success: false, data: error });
       console.log(error)
     }
-
-  } else {
-    res.status(401).json({
-      status: 'NoAccess',
-      message: userObj.message
-    });
+     finally {
+      await client.end();
+    }
   }
 }
 
-function update(req, res, next) {
+async function update(req, res, next) {
   addAccess();
   const results = [];
 
   userObj = localAuth.isAuthenticated(req);
 
-  if (userObj.status == 0) {
-    //Build parameter object data
-    const objParam = params.buildUpdate(req);
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if (err) {
-        done();
-        console.log(err);
-        return res.status(500).json({ success: false, data: err });
-      }
-      // SQL Query > Update Data
-      client.query(querys.update, objParam.params)
-      // SQL Query > log 
-      const query = client.query(querys.log, params.buildLog(req, userObj.user).params);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', function () {
-        done();
-        return res.json({ payload: results });
-      });
-    });
-  } else {
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
+  } else {
+
+    const objParam = params.buildUpdate(req);
+    const client = new Client(process.env.DATABASE_URL)
+    
+    try {
+      
+      await client.connect()
+      await client.query(querys.update, objParam.params)
+      // // SQL Query > log 
+      const queryResult = await client.query(querys.log, params.buildLog(req, userObj.user).params);
+      const { rows } = queryResult
+      return res.json({ payload: !!rows.length });
+
+    } catch (error) {
+      res.status(500).json({ success: false, data: error });
+      console.log(error)
+    }
+     finally {
+      await client.end();
+    }
+
   }
 }
 
-function remove(req, res, next) {
+async function remove(req, res, next) {
   addAccess();
   const results = [];
   // Grab data from the URL parameters
   userObj = localAuth.isAuthenticated(req);
 
-  if (userObj.status == 0) {
-    //Build parameter object data
-    const objParam = params.buildRemove(req);
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if (err) {
-        done();
-        console.log(err);
-        return res.status(500).json({ success: false, data: err });
-      }
-      // SQL Query > Delete Data
-      client.query(querys.remove, objParam.params);
-      // SQL Query > log 
-      const query = client.query(querys.log, params.buildLog(req, userObj.user).params);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', () => {
-        done();
-        return res.json({ payload: results });
-      });
-    });
-  } else {
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
+  } else {
+
+    const objParam = params.buildRemove(req);
+    const client = new Client(process.env.DATABASE_URL)
+    
+    try {
+      
+      await client.connect()
+      await client.query(querys.remove, objParam.params);
+      // // SQL Query > log 
+      const queryResult = await client.query(querys.log, params.buildLog(req, userObj.user).params);
+      const { rows } = queryResult
+      return res.json({ payload: !!rows.length });
+
+    } catch (error) {
+      res.status(500).json({ success: false, data: error });
+      console.log(error)
+    }
+     finally {
+      await client.end();
+    }
+
   }
 }
 
-function search(req, res, next) {
+async function search(req, res, next) {
   addAccess();
   const results = [];
   userObj = localAuth.isAuthenticated(req);
-  if (userObj.status == 0) {
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if (err) {
-        done();
-        console.log(err);
-        return res.status(500).json({ success: false, data: err });
-      }
-      // SQL Query > Select Data
-      const query = client.query(querys.getAll);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', () => {
-        done();
-        searchResults(req, res, results);
-      });
-    });
-  } else {
+
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
   }
+  const client = new Client(process.env.DATABASE_URL)
+  try {
+    await client.connect()
+    // SQL Query > Select Data
+    const queryResult = await client.query(querys.getAll);
+    const { rows } = queryResult
+    searchResults(req, res, rows);
+
+  } catch (error) {
+    res.status(500).json({
+      status: 'internalServerError',
+      message: error
+    });
+    console.log(error)
+  } finally {
+    await client.end()
+  }
+
 };
 
 function searchResults(req, res, result) {
@@ -288,7 +280,6 @@ function addAccess() {
 
 async function accountExists(client, email) {
 
-  // let objParam = params.buildFind(req).params;
   // SQL Query > Select Data
   const queryResult = await client.query(querys.find, [email]);
   const { rows } = queryResult

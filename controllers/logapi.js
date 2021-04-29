@@ -3,40 +3,39 @@ const pg = require('pg');
 const path = require('path');
 const localAuth = require('../public/auth/local');
 const params = require('../parameters/logapi');
+const { Pool, Client } = require('pg')
 
 //User Authentication object
 var userObj = null ;
 var querys = params.setQuerys();
 
-function getAll(req, res, next){
+async function getAll(req, res, next){
+
   const results = [];
-  userObj =  localAuth.isAuthenticated(req);
-  if(userObj.status==0){
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if(err) {
-        done();
-        console.log(err);
-        return res.status(500).json({success: false, data: err});
-      }
-      // SQL Query > Select Data
-      const query = client.query(querys.getAll);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', () => {
-        done();
-        return res.json({payload: results});
-      });
-    });
-  }else{
+  userObj = localAuth.isAuthenticated(req);
+
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
+  }
+  const client = new Client(process.env.DATABASE_URL)
+  try {
+    await client.connect()
+    // SQL Query > Select Data
+    const queryResult = await client.query(querys.getAll);
+    const { rows } = queryResult
+    return res.json({ payload: rows });
+
+  } catch (error) {
+    res.status(500).json({
+      status: 'internalServerError',
+      message: error
+    });
+    console.log(error)
+  } finally {
+    await client.end()
   }
 };
 
@@ -171,36 +170,34 @@ function remove(req, res, next){
   }
 }
 
-function search(req, res, next){
+async function search(req, res, next){
   const results = [];
-  userObj =  localAuth.isAuthenticated(req);
-  if(userObj.status==0){
-    // Get a Postgres client from the connection pool
-    pg.connect(process.env.DATABASE_URL, (err, client, done) => {
-      // Handle connection errors
-      if(err) {
-        done();
-        console.log(err);
-        return res.status(500).json({success: false, data: err});
-      }
-      // SQL Query > Select Data
-      const query = client.query(querys.getAll);
-      // Stream results back one row at a time
-      query.on('row', (row) => {
-        results.push(row);
-      });
-      // After all data is returned, close connection and return results
-      query.on('end', () => {
-        done();
-        searchResults(req,res,results);
-      });
-    });
-  }else{
+  userObj = localAuth.isAuthenticated(req);
+
+  if (userObj.status !== 0) {
     res.status(401).json({
       status: 'NoAccess',
       message: userObj.message
     });
   }
+  const client = new Client(process.env.DATABASE_URL)
+  try {
+    await client.connect()
+    // SQL Query > Select Data
+    const queryResult = await client.query(querys.getAll);
+    const { rows } = queryResult
+    searchResults(req, res, rows);
+
+  } catch (error) {
+    res.status(500).json({
+      status: 'internalServerError',
+      message: error
+    });
+    console.log(error)
+  } finally {
+    await client.end()
+  }
+
 };
 
 function searchResults(req, res, result) {
@@ -239,13 +236,13 @@ function searchResults(req, res, result) {
   //Filter results by filter field parameter
   if (filter) {
     colResult = colResult.filter(objResult => Object.values(objResult).join().trim().toLowerCase().search(filter.toLowerCase()) >= 0);
-  }
-
+    }
   //Calculates initial position item by page
-  const initialPos = pageNumber * pageSize;
+  const initialPos = (pageNumber - 1) * pageSize;
 
   //Cut results to page size
   const resultsPage = colResult.slice(initialPos, initialPos + pageSize);
+  //const resultsPage = colResult.slice(0, 10);
 
   //Returns data as Payload(result), found(how many itens were found) and total (How many itens exists)
   setTimeout(() => {

@@ -38,7 +38,7 @@ function buildAdd(req){
 }
 
 function buildUpdate(req){
-    ret.data = {id:req.params.id,name: req.body.name, email: req.body.email, pass: req.body.pass, active: req.body.active}
+    ret.data = {id:req.params.id,name: req.body.name, email: req.body.email, pass: crypt(req.body.pass), active: req.body.active}
     ret.params = objToArray(ret.data);
     return ret;
 }
